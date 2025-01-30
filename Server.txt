@@ -1,0 +1,94 @@
+#include <iostream>
+#include <thread>
+#include <vector>
+#include <mutex>
+#include <cstring>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <atomic>
+using namespace std;
+
+#pragma comment(lib, "ws2_32.lib")
+#define PORT 8080
+#define MAX_CLIENTS 100
+
+mutex mtx;
+atomic<int> clientCounter(0);
+
+void handleClient(SOCKET clientSocket, int clientId) {
+    char buffer[1024] = { 0 };
+    while (true) {
+        int readSize = recv(clientSocket, buffer, sizeof(buffer), 0);
+        if (readSize <= 0) {
+            break;
+        }
+        lock_guard<mutex> lock(mtx);
+        cout << "Client " << clientId << ": " << buffer << endl;
+        send(clientSocket, buffer, readSize, 0);
+    }
+    lock_guard<mutex> lock(mtx);
+    cout << "Client " << clientId << " disconnected." << endl;
+    closesocket(clientSocket);
+}
+
+int main() {
+    WSADATA wsaData;
+    SOCKET serverSocket, clientSocket;
+    struct sockaddr_in address;
+    int opt = 1;
+    int addrlen = sizeof(address);
+
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        cerr << "WSAStartup failed: " << WSAGetLastError() << endl;
+        return EXIT_FAILURE;
+    }
+
+    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSocket == INVALID_SOCKET) {
+        perror("socket failed");
+        WSACleanup();
+        return EXIT_FAILURE;
+    }
+
+    if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) < 0) {
+        perror("setsockopt");
+        closesocket(serverSocket);
+        WSACleanup();
+        return EXIT_FAILURE;
+    }
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(PORT);
+
+    if (bind(serverSocket, (struct sockaddr*)&address, sizeof(address)) < 0) {
+        perror("bind failed");
+        closesocket(serverSocket);
+        WSACleanup();
+        return EXIT_FAILURE;
+    }
+
+    if (listen(serverSocket, SOMAXCONN) < 0) {
+        perror("listen");
+        closesocket(serverSocket);
+        WSACleanup();
+        return EXIT_FAILURE;
+    }
+    cout << "Server is listening on port " << PORT << endl;
+    while (true) {
+        clientSocket = accept(serverSocket, (struct sockaddr*)&address, (socklen_t*)&addrlen);
+        if (clientSocket == INVALID_SOCKET) {
+            perror("accept");
+            closesocket(serverSocket);
+            WSACleanup();
+            return EXIT_FAILURE;
+        }
+
+        int clientId = ++clientCounter;
+        cout << "Client " << clientId << " connected." << endl;
+        thread(handleClient, clientSocket, clientId).detach();
+    }
+    closesocket(serverSocket);
+    WSACleanup();
+    return 0;
+}

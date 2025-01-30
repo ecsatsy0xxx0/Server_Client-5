@@ -1,0 +1,42 @@
+#include <iostream>
+#include <thread>
+#include <semaphore>
+#include <vector>
+#include <exception>
+using namespace std;
+
+// Определение количества потоков, которые могут одновременно получить доступ к ресурсу
+constexpr int MAX_CONCURRENT_CLIENTS = 3;
+
+counting_semaphore<MAX_CONCURRENT_CLIENTS> sem(MAX_CONCURRENT_CLIENTS);
+
+void clientThread(int clientId) {
+    try {
+        sem.acquire();
+        cout << "Client " << clientId << " acquired semaphore." << endl;
+
+        this_thread::sleep_for(chrono::seconds(2));
+
+        cout << "Client " << clientId << " releasing semaphore." << endl;
+        sem.release();
+    }
+    catch (const system_error& e) {
+        cerr << "Error acquiring semaphore for client " << clientId << ": " << e.what() << endl;
+    }
+}
+
+int main() {
+    int numClients = 10;
+    vector<thread> threads;
+
+    for (int i = 1; i <= numClients; ++i) {
+        threads.emplace_back(clientThread, i);
+    }
+
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    cout << "All clients finished." << endl;
+    return 0;
+}
