@@ -2,31 +2,32 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+using namespace std;
 
-std::mutex mtx;
-std::condition_variable cv;
+mutex mtx;
+condition_variable cv;
 bool dataReady = false;
 int sharedData = 0;
 
 void producerThread() {
     // ... Производит данные ...
     {
-        std::lock_guard<std::mutex> lock(mtx);
+        lock_guard<mutex> lock(mtx);
         dataReady = true;
-        sharedData = 10; // Пример данных
+        sharedData = 10;
     }
     cv.notify_one(); // Сигнализируем о готовности данных
 }
 
 void consumerThread() {
-    std::unique_lock<std::mutex> lock(mtx);
+    unique_lock<mutex> lock(mtx);
     cv.wait(lock, [] { return dataReady; }); // Ждем сигнала
-    std::cout << "Consumer received: " << sharedData << std::endl;
+    cout << "Consumer received: " << sharedData << endl;
 }
 
 int main() {
-    std::thread producer(producerThread);
-    std::thread consumer(consumerThread);
+    thread producer(producerThread);
+    thread consumer(consumerThread);
 
     producer.join();
     consumer.join();
