@@ -3,28 +3,29 @@
 #include <mutex>
 #include <vector>
 #include <random>
+using namespace std;
 
-std::mutex mtx;
-std::vector<int> sharedData;
+mutex mtx;
+vector<int> sharedData;
 
 void clientThread(int clientId) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> distrib(1, 10);
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_int_distribution<> distrib(1, 10);
 
     for (int i = 0; i < 5; ++i) {
         int value = distrib(gen);
         {
-            std::lock_guard<std::mutex> lock(mtx);
+            lock_guard<mutex> lock(mtx);
             sharedData.push_back(value);
-            std::cout << "Client " << clientId << " added: " << value << std::endl;
+            cout << "Client " << clientId << " added: " << value << endl;
         }
     }
 }
 
 int main() {
     int numClients = 3;
-    std::vector<std::thread> threads;
+    vector<thread> threads;
 
     for (int i = 1; i <= numClients; ++i) {
         threads.emplace_back(clientThread, i);
@@ -34,11 +35,11 @@ int main() {
         thread.join();
     }
 
-    std::cout << "Final shared data: ";
+    cout << "Final shared data: ";
     for (int value : sharedData) {
-        std::cout << value << " ";
+        cout << value << " ";
     }
-    std::cout << std::endl;
+    cout << endl;
 
     return 0;
 }
